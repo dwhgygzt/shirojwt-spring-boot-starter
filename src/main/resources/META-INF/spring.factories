@@ -1,0 +1,4 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+  org.guzt.starter.shirojwt.config.ShiroJwtAutoConfig,\
+  org.guzt.starter.shirojwt.config.LifecycleAutoConfig,\
+  org.guzt.starter.shirojwt.config.BussinessBeanDependencyAutoConfig
