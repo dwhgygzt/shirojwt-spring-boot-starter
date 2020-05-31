@@ -15,7 +15,7 @@ pom.xml 文件引入如下配置
  1. 配置文件默认登录路径 /api/login
  2. 配置文件默认退出路径 /api/logout
  3. 默认Header里jwt的名称 Authorization
- 4. 其他默认值请查看源码
+ 4. 其他默认值例如token超时时限，刷新时限请查看源码，默认1个小时
  
 如果需要配置不同信息，yml文件配置也十分简单：
 ```yaml
@@ -25,7 +25,6 @@ shirojwt:
   logout-url: /api/logout
   jwtIssuer: yourIssuerName
   token-header-key: Authorization
-
 ```
 
 ## 用法：
@@ -154,13 +153,19 @@ public class MyJwtBussinessService extends JwtBussinessService {
 }
 ```
 
-### 4. 添加自定义路径配置
-
 **默认已经对swagger进行的过滤，可直接访问swagger页面**
+**如果要引入其他Bean 请务必使用懒加载方式，防止自定义的AOP失效，因为ExtraFilterRule所在的配置类会被提前初始化**
 
 ```java
 @Component
 public class MyExtraFilterRule extends ExtraFilterRule {
+    
+    // 请务必使用懒加载方式注入bean
+    // yourBusinessBean 例如为菜单查询类，查询出所有按钮权限菜单
+    @Lazy
+    @Service
+    private YourBusinessBean yourBusinessBean;
+
     @Override
     public void setExtraFilterRule(LinkedHashMap<String, String> filterRuleMap) {
         // 不检查某些路径
@@ -172,6 +177,7 @@ public class MyExtraFilterRule extends ExtraFilterRule {
 ```
 
 ### 5. 添加自定义过滤器
+**如果要引入其他Bean 请务必使用懒加载方式，防止自定义的AOP失效，因为ExtraFilter所在的配置类会被提前初始化**
 ```java
 @Component
 public class MyExtraFilter extends ExtraFilter {
@@ -205,3 +211,158 @@ public class MyTestFilter extends AuthorizationFilter {
 | myCorsFilter  | 支持跨域，默认支持 |
 | jwtPerms  | URL 上的权限认证 |
 | jwtRoles  | URL 上的角色认证 |
+
+
+### 7. 基于URL的权限认证
+一般情况下针对基于URL的权限认证，说白了就是按钮权限认证，也即对后台某个Controller方法的权限认证。
+所谓权限认证，就是你是否有相应的权限或角色标识才可调用该controller里面的某个方法。
+
+这里做法一般两种， 1. 基于权限注解  2. 基于URL过滤器配置
+#### 基于注解
+用法如下：
+```java
+/**
+ * 测试 shirojwt
+ *
+ * @author admin
+ */
+@RestController
+@RequestMapping("/api")
+public class UserInfoController {
+ 
+    // 需要 权限 admin:update 才可访问这个方法
+    @RequiresPermissions("admin:update")
+    @PutMapping("updateUser")
+    public String updateUser(@RequestBody Map<String, String> user) {
+        userInfoService.updateUser(user);
+        return "success";
+    }
+ 
+    // 需要 admin或user角色才能访问这个方法
+    @RequiresRoles(value = {"admin","user"})
+    @GetMapping("getUserInfoByUserName")
+    public Map<String, String> getUserInfoByUserName(String userName) {
+        return userInfoService.getUserByUserName(userName);
+    }
+
+}
+
+```
+当用户访问 上面controller层里面任意一个方法时，shiro会调用上文中 doGetAuthorizationInfo  
+方法，该方法作用就是从数据库或缓存中根据 JWT 取出用户具有的角色和权限，然后Shiro框架会自动判定用户是否具有
+访问该方法的权限，如果没有将抛出 UnauthorizedException 异常， 用户可使用全局异常进行捕获反馈给前端。
+
+这里说明一下 在此之前用户已经进过JWT 认证了，如果认证不通过不会到这一步的。
+
+
+#### 基于URL过滤器配置
+上文已经提过，本starter已经默认注册了 权限角色验证的过滤器,且支持自定义URL过滤配置
+
+|  名称   | 作用  |
+|  ----  | ----  |
+| jwtPerms  | URL 上的权限认证 |
+| jwtRoles  | URL 上的角色认证 |
+
+重复上面的文章 覆写ExtraFilterRule类即可。
+
+**默认已经对swagger进行的过滤，可直接访问swagger页面**
+**如果要引入其他Bean 请务必使用懒加载方式，防止自定义的AOP失效，因为ExtraFilterRule所在的配置类会被提前初始化**
+
+```java
+@Component
+public class MyExtraFilterRule extends ExtraFilterRule {
+    
+    // 请务必使用懒加载方式注入bean
+    // MenuRoleService 角色菜单权限关系处理service
+    @Lazy
+    @Service
+    private MenuRoleService menuRoleService;
+
+    @Override
+    public void setExtraFilterRule(LinkedHashMap<String, String> filterRuleMap) {
+        List<Menu> buttons = menuRoleService.listAllButtonMenu();
+        for( Menu item : buttons ){
+            // item.getPathUrl() 是按钮对应的后端路径
+            // item.getPerm() 是按钮应的权限标识，表示这个URL需要该权限标识才可访问
+            filterRuleMap.put(item.getPathUrl(), "noSessionCreation,jwt,jwtPerms["+ item.getPerm() +"]");
+        }
+    }
+}
+```
+
+这里如果用户权限认证不通过时候，会调用上文中 MyJwtBussinessService 里面的 onAccessDenied 方法。
+此时 ShiroException 为 UnauthorizedException，你可以根据具体的异常类别做出打印或跳转信息给前端。
+
+这里列出 ShiroException 的具体常用的几种子类，以便你做出具体的业务逻辑处理。
+
+|  类别   | 说明  |
+|  ----  | ----  |
+| NoTokenAuthenticationException  |【jwt验证】 header里面未携带jwt |
+| ProgramErrorAuthenticationException  | 【jwt验证】jwt验证程序500错误 |
+| ExpiredCredentialsException  | 【jwt验证】jwt过期，这个需要你自己认证方法里面抛出 |
+| ExpiredCredentialsException  | 【jwt验证】jwt过期，这个需要你自己认证方法里面抛出 |
+| IncorrectCredentialsException  | 【jwt验证】jwt格式错误，这个需要你自己认证方法里面抛出  |
+| UnauthorizedException  | 【权限验证】 权限认证不通过统一抛出该异常 |
+
+
+
+
+### 8. 基于URL的动态权限认证
+所谓动态 就是可以在管理系统里面随意添加一条或删除一条URL 认证记录，这里暂不建议这样做，
+这里非要做其实是要刷新Shiro里面缓存的URL 拦截配置，说穿了就是将里面的一个LinkHashMap清空重新
+填充数据。
+
+- 不建议原因1  现在都是分布式部署，你要刷新全部的机器上的应用
+- 不建议原因2  一般都是有新功能上线才会有这样的事情，建议滚动发布即可，挨个重启服务测试
+- 不建议原因3  现在很多的微服务认证都转向API网关层认证，当然网关认证也可结合shirojwt，网关一般也是多台部署
+  一般滚动发布即可。
+  
+### 9. 关于缓存管理
+这里建议开发自行 在认证 和 授权两个方法里面通过redis缓存进行自定义逻辑处理。
+例如简单的获取用户是否存在验证逻辑：
+```java
+@Service
+public class CurrentUserServiceImpl implements CurrentUserService {
+
+    public CurrentUserVO getCurrentUserFromCacheAndDb(String authToken) {
+        if (StrUtil.isEmpty(authToken)) {
+            logger.debug("authToken is null");
+            BusinessException.create(CommonBusinessCode.AUTHTOKEN_NOTFOUND);
+        }
+        CurrentUserVO vo = null;
+       // 先从缓存里面取 token
+        RBucket<String> tokenBucket = redissonClient.getBucket(
+                applicationName + StrUtil.format(SysConstants.REDIS_LOGIN_TOKEN_KEY, SecureUtil.md5(authToken)));
+        if (!tokenBucket.isExists()) {
+            logger.debug("authToken {} not in redis", authToken);
+            BusinessException.create(CommonBusinessCode.AUTHTOKEN_INVALID);
+        }
+       // 然后根据token 取用户
+        RBucket<CurrentUserVO> userBucket = redissonClient.getBucket(
+                applicationName + StrUtil.format(SysConstants.REDIS_LOGIN_USER_KEY, JwtUtil.getUserName(authToken)));
+        if (userBucket.isExists()) {
+            vo = userBucket.get();
+            CurrentUserContext.remove();
+            CurrentUserContext.setCurrentUser(vo);
+        }
+        // 缓存不存在，从数据库中加载用户信息
+        if (ObjectUtil.isEmpty(vo)) {
+            logger.debug("currentUser({}) 获取不到信息 从数据库中查询该用户", JwtUtil.getUserName(authToken));
+            CurrentUserContext.remove();
+            sysUserAggregateService.getCurrentUserFromDb(JwtUtil.getUserName(authToken), ExtendNetUtil.getSpringContextRequestIp(), SecureUtil.md5(authToken));
+            vo = CurrentUserContext.getCurrentUser();
+            // 放入缓存中
+            userBucket.set(vo, shiroJwtProperties.getTokenExpireSeconds(), TimeUnit.SECONDS);
+        }
+
+        if (ObjectUtil.isEmpty(vo)) {
+            logger.debug("currentUser({}) 缓存和数据库中都获取不到用户信息", JwtUtil.getUserName(authToken));
+            BusinessException.create(CommonBusinessCode.CURRENT_USER_NOTFOUND);
+        }
+
+        return vo;
+    }
+
+}
+
+```

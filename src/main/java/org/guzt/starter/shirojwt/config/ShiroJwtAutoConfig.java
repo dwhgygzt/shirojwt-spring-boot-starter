@@ -107,7 +107,7 @@ public class ShiroJwtAutoConfig {
         factoryBean.setSecurityManager(securityManager);
 
         // 添加自己的过滤器并且取名为jwt
-        LinkedHashMap<String, Filter> filterMap = new LinkedHashMap<>(2);
+        LinkedHashMap<String, Filter> filterMap = new LinkedHashMap<>(4);
         filterMap.put("jwt", new JwtFilter());
         filterMap.put("myCorsFilter", new MyCorsFilter());
         filterMap.put("jwtPerms", new JwtPermissionsAuthorizationFilter());
