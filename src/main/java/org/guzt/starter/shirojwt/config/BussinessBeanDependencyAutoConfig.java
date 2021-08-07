@@ -24,7 +24,7 @@ import javax.annotation.Resource;
  * @author <a href="mailto:guzhongtao@middol.com">guzhongtao</a>
  */
 @Configuration
-@ConditionalOnProperty(prefix = "shirojwt", value = "enable", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "shirojwt", value = "enable", havingValue = "true")
 public class BussinessBeanDependencyAutoConfig implements InitializingBean {
 
     private static Logger logger = LoggerFactory.getLogger(BussinessBeanDependencyAutoConfig.class);

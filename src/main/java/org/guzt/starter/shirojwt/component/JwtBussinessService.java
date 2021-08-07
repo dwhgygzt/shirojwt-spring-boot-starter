@@ -1,14 +1,15 @@
 package org.guzt.starter.shirojwt.component;
 
+import org.guzt.starter.shirojwt.util.ShiroByteSource;
 import org.apache.shiro.ShiroException;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationInfo;
 import org.apache.shiro.authz.SimpleAuthorizationInfo;
 import org.apache.shiro.subject.PrincipalCollection;
-import org.apache.shiro.util.ByteSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.util.DigestUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -26,6 +27,7 @@ import java.util.HashSet;
 public class JwtBussinessService {
 
     private Logger logger = LoggerFactory.getLogger(this.getClass());
+
 
     /**
      * 授权
@@ -72,7 +74,7 @@ public class JwtBussinessService {
         }
         // 从数据库中获得用户具体的 secret 和 salt
         // 将用户放到登录认证info中，无需自己做密码对比， JwtCredentialsMatcher会进行密码校验
-        return new SimpleAuthenticationInfo(token, "secret", ByteSource.Util.bytes("salt"), realmName);
+        return new SimpleAuthenticationInfo(token, "secret", new ShiroByteSource("salt"), realmName);
     }
 
     /**
@@ -140,6 +142,38 @@ public class JwtBussinessService {
 
         return "your new token";
     }
+
+    /**
+     * token 认证过后的处理
+     *
+     * @param token JWT
+     */
+    public void onLoginSuccess(String token) {
+        logger.debug("token {} 认证过后的处理, 可覆盖该方法", token);
+    }
+
+    /**
+     * 设置 Authorization 缓存中的key.
+     * 如果对key的命名有特殊要求请覆盖此方法
+     *
+     * @param jwtToken 当前jwt
+     * @return Authorization 缓存中的key
+     */
+    public String getAuthorizationCacheKey(String jwtToken) {
+        return "Authorization:" + DigestUtils.md5DigestAsHex(jwtToken.getBytes());
+    }
+
+    /**
+     * 设置 Authentication 缓存中的key.
+     * 如果对key的命名有特殊要求请覆盖此方法
+     *
+     * @param jwtToken 当前jwt
+     * @return Authentication 缓存中的key
+     */
+    public String getAuthenticationCacheKey(String jwtToken) {
+        return "Authentication:" + DigestUtils.md5DigestAsHex(jwtToken.getBytes());
+    }
+
 
 }
 

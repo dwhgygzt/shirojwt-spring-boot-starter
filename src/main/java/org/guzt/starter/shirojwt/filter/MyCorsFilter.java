@@ -22,7 +22,7 @@ public class MyCorsFilter extends BasicHttpAuthenticationFilter {
 
 
     @Override
-    protected boolean preHandle(ServletRequest request, ServletResponse response) {
+    protected boolean preHandle(ServletRequest request, ServletResponse response) throws Exception {
         // 跨域提供支持
         FilterUtil.crossDomainPreHandle(request, response);
         // 跨域时会首先发送一个option请求，这里我们给option请求直接返回正常状态

@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
  * @author <a href="mailto:guzhongtao@middol.com">guzhongtao</a>
  */
 @Configuration
-@ConditionalOnProperty(prefix = "shirojwt", value = "enable", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "shirojwt", value = "enable", havingValue = "true")
 public class LifecycleAutoConfig {
 
     private static Logger logger = LoggerFactory.getLogger(LifecycleAutoConfig.class);

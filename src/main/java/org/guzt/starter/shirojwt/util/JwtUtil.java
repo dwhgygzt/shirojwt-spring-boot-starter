@@ -15,8 +15,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * Jwt 签名，验证，取值工具类
- *
  * @author <a href="mailto:guzhongtao@middol.com">guzhongtao</a>
  */
 public class JwtUtil {
@@ -143,6 +141,24 @@ public class JwtUtil {
     }
 
     /**
+     * 从token中获取 JWT的 离过期时间还有多少毫秒
+     *
+     * @return JWT的 离过期时间毫秒数
+     */
+    public static Long getRemainMillisecond(String token) {
+        try {
+            DecodedJWT jwt = JWT.decode(token);
+            long nowTimes = System.currentTimeMillis();
+            long remainTimes = jwt.getExpiresAt().getTime() - nowTimes;
+            return Math.max(remainTimes, 0L);
+        } catch (JWTDecodeException e) {
+            logger.error("getExpiresAt(..) JWTDecodeException");
+            logger.error("token = {}", token);
+            return null;
+        }
+    }
+
+    /**
      * 从token中获取 JWT的 会自动刷新的秒数
      *
      * @return JWT的 会自动刷新的秒数
@@ -200,9 +216,9 @@ public class JwtUtil {
         }
         jwtBuilder.withClaim(tokenExpireSecondsKey, tokenExpireSeconds);
         jwtBuilder.withClaim(tokenRefreshSecondsKey, tokenRefreshSeconds);
+        jwtBuilder.withIssuer(shiroJwtProperties.getJwtIssuer());
+        jwtBuilder.withSubject(shiroJwtProperties.getJwtSubject());
         return jwtBuilder.withJWTId(UUID.randomUUID().toString().replaceAll("-", ""))
-                .withIssuer(shiroJwtProperties.getJwtIssuer())
-                .withSubject(shiroJwtProperties.getJwtSubject())
                 .withExpiresAt(expiresAt)
                 .withIssuedAt(issuedAt)
                 .sign(algorithm);

@@ -1,6 +1,5 @@
 package org.guzt.starter.shirojwt.filter;
 
-import org.guzt.starter.shirojwt.config.ShiroJwtAutoConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +20,7 @@ public class ExtraFilterRule {
      * 最后无需添加 "/**", "noSessionCreation,jwt" 已经默认加上
      *
      * @param filterRuleMap 已经初始化后的LinkedHashMap
-     * @see ShiroJwtAutoConfig#shiroFilterFactoryBean
+     * @see org.guzt.starter.shirojwt.config.ShiroJwtAutoConfig#shiroFilterFactoryBean
      */
     public void setExtraFilterRule(LinkedHashMap<String, String> filterRuleMap) {
         if (logger.isDebugEnabled()){

@@ -1,12 +1,13 @@
 package org.guzt.starter.shirojwt.config;
 
-import org.apache.shiro.cache.MemoryConstrainedCacheManager;
 import org.apache.shiro.mgt.DefaultSessionStorageEvaluator;
 import org.apache.shiro.mgt.DefaultSubjectDAO;
 import org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor;
 import org.apache.shiro.spring.web.ShiroFilterFactoryBean;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
 import org.guzt.starter.shirojwt.component.JwtCredentialsMatcher;
+import org.guzt.starter.shirojwt.component.JwtShiroCacheManager;
+import org.guzt.starter.shirojwt.component.MyCacheService;
 import org.guzt.starter.shirojwt.filter.*;
 import org.guzt.starter.shirojwt.properties.ShiroJwtProperties;
 import org.guzt.starter.shirojwt.realm.JwtRealm;
@@ -29,7 +30,7 @@ import java.util.LinkedHashMap;
  */
 @Configuration
 @EnableConfigurationProperties({ShiroJwtProperties.class})
-@ConditionalOnProperty(prefix = "shirojwt", value = "enable", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "shirojwt", value = "enable", havingValue = "true")
 public class ShiroJwtAutoConfig {
 
     private static Logger logger = LoggerFactory.getLogger(ShiroJwtAutoConfig.class);
@@ -42,6 +43,7 @@ public class ShiroJwtAutoConfig {
 
     @Resource
     private ExtraFilterRule extraFilterRule;
+
 
     @Bean
     @ConditionalOnMissingBean
@@ -56,21 +58,37 @@ public class ShiroJwtAutoConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "shirojwt", value = "enable-cache-manager", havingValue = "true")
+    @ConditionalOnMissingBean
+    public MyCacheService myCacheService() {
+        return new MyCacheService();
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "shirojwt", value = "enable-cache-manager", havingValue = "true")
+    @ConditionalOnMissingBean
+    public JwtShiroCacheManager jwtShiroCacheManager() {
+        return new JwtShiroCacheManager(myCacheService());
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     public JwtRealm jwtRealm() {
         logger.debug("【ShiroJWT】Bean JwtRealm 初始化 ...");
         JwtRealm jwtRealm = new JwtRealm();
         jwtRealm.setCredentialsMatcher(new JwtCredentialsMatcher());
 
-        if (shiroJwtProperties.isEnableCacheMemory()) {
+        if (shiroJwtProperties.isEnableCacheManager()) {
+            logger.debug("【ShiroJWT】Bean JwtRealm 开启了CacheManager");
+            // default value is true
+            jwtRealm.setCachingEnabled(true);
             // 使用默认提供的 MemoryConstrainedCacheManager
-            jwtRealm.setCacheManager(new MemoryConstrainedCacheManager());
+            jwtRealm.setCacheManager(jwtShiroCacheManager());
             // 启用身份验证缓存，即缓存AuthenticationInfo信息，默认false
             jwtRealm.setAuthenticationCachingEnabled(true);
             // 启用授权缓存，即缓存AuthorizationInfo信息，默认false,一旦配置了缓存管理器，授权缓存默认开启
             jwtRealm.setAuthorizationCachingEnabled(true);
         }
-
         return jwtRealm;
     }
 
@@ -120,11 +138,11 @@ public class ShiroJwtAutoConfig {
         //路径拦截设置，注意put进去的顺序，放在最前面的先生效！
         LinkedHashMap<String, String> filterRuleMap = new LinkedHashMap<>(32);
         String comma = ",";
-        String swaggerUrls = "/swagger-ui.html,/swagger-resources/**,/webjars/**,/v2/api-docs";
+        String swaggerUrls = "/doc.html,/swagger-ui.html,/swagger-resources/**,/webjars/**,/v2/api-docs";
         for (String item : swaggerUrls.split(comma)) {
             filterRuleMap.put(item.trim(), "noSessionCreation,anon");
         }
-        String bootAdminUrls = "/favicon.ico,/actuator/**,/instances/**,/assets/**,/sba-settings.js,/applications/**";
+        String bootAdminUrls = "/favicon.ico,/actuator/**,/instances/**,/assets/**,/sba-settings.js,/applications/**,/templates/**";
         for (String item : bootAdminUrls.split(comma)) {
             filterRuleMap.put(item.trim(), "noSessionCreation,anon");
         }

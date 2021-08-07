@@ -1,6 +1,7 @@
 package org.guzt.starter.shirojwt.realm;
 
 import org.guzt.starter.shirojwt.component.JwtBussinessService;
+import org.guzt.starter.shirojwt.context.JwtTokenCacheContext;
 import org.guzt.starter.shirojwt.token.JwtToken;
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationInfo;
@@ -61,4 +62,33 @@ public class JwtRealm extends AuthorizingRealm {
     protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken auth) throws AuthenticationException {
         return jwtBussinessService.doGetAuthenticationInfo(auth, getName());
     }
+
+    @Override
+    protected Object getAuthorizationCacheKey(PrincipalCollection principals) {
+        String jwtToken = principals.toString();
+        JwtTokenCacheContext.setCurrentJwtToken(jwtToken);
+        return jwtBussinessService.getAuthorizationCacheKey(jwtToken);
+    }
+
+    @Override
+    protected Object getAuthenticationCacheKey(AuthenticationToken token) {
+        String jwtToken = (String) token.getCredentials();
+        JwtTokenCacheContext.setCurrentJwtToken(jwtToken);
+        return jwtBussinessService.getAuthenticationCacheKey(jwtToken);
+    }
+
+    @Override
+    protected Object getAuthenticationCacheKey(PrincipalCollection principals) {
+        String jwtToken = principals.toString();
+        JwtTokenCacheContext.setCurrentJwtToken(jwtToken);
+        return jwtBussinessService.getAuthenticationCacheKey(jwtToken);
+    }
+
+    @Override
+    protected void doClearCache(PrincipalCollection principals) {
+        JwtTokenCacheContext.remove();
+        super.doClearCache(principals);
+    }
+
+
 }

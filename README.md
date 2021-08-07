@@ -9,23 +9,22 @@ pom.xml 文件引入如下配置
 </dependency>
 ```
 
-引入配置后，其实 application.yml不用配置任何信息即可启用 shiro jwt，
-当然你可以根据下面的常用默认值决定是否配置
+引入配置后， application.yml简单配置即可启用 Shiro JWT ：
 
- 1. 配置文件默认登录路径 /api/login
- 2. 配置文件默认退出路径 /api/logout
- 3. 默认Header里jwt的名称 Authorization
- 4. 其他默认值例如token超时时限，刷新时限请查看源码，默认1个小时
- 
-如果需要配置不同信息，yml文件配置也十分简单：
 ```yaml
-
 shirojwt:
-  login-url: /api/login
-  logout-url: /api/logout
-  jwtIssuer: yourIssuerName
-  token-header-key: Authorization
+    enable: true
 ```
+
+当然你可以根据下面的常用默认值决定是否个性化配置
+ 1. 文件默认登录路径 /api/login
+ 2. 文件默认退出路径 /api/logout
+ 3. 默认Header里jwt的名称 Authorization
+ 4. 默认值token超时时限1个小时, 自动刷新token时间为40分钟
+ 5. token 后台刷新后，标注response Status code为201，前端取 header中的Authorization值替换即可
+ 6. 默认未启用认证授权方法缓存，可设置开关为true开启缓存
+ 
+
 
 ## 用法：
 ### 1. 用户登录后生成 token方法
@@ -131,8 +130,10 @@ public class MyJwtBussinessService extends JwtBussinessService {
         }
         // 用户最终认证
         String password = user.get(UserInfoService.passwordKey);
+        // 盐值（生成用户密码时候，冗余一个字段，随机产生一个字符串）
         String salt = user.get(UserInfoService.saltKey);
-        return new SimpleAuthenticationInfo(token, password, ByteSource.Util.bytes(salt), realmName);
+       // 注意这里的盐值采用 ShiroByteSource 封装
+        return new SimpleAuthenticationInfo(token, password,  new ShiroByteSource(salt), realmName);
     }
 
     @Override
@@ -318,51 +319,64 @@ public class MyExtraFilterRule extends ExtraFilterRule {
   一般滚动发布即可。
   
 ### 9. 关于缓存管理
-这里建议开发自行 在认证 和 授权两个方法里面通过redis缓存进行自定义逻辑处理。
-例如简单的获取用户是否存在验证逻辑：
+
+认证授权方法 ShiroJWT 支持缓存。
+
+1. yml中设置enable-cache-manager 属性为true
+
+```yaml
+
+shirojwt:
+    enable: true
+    enable-cache-manager: true
+
+```
+
+2. 继承缓存工具类，覆盖里面的方法即可，缓存时间是当前token剩余的有效期时长
+
 ```java
-@Service
-public class CurrentUserServiceImpl implements CurrentUserService {
+public class MyCacheService {
 
-    public CurrentUserVO getCurrentUserFromCacheAndDb(String authToken) {
-        if (StrUtil.isEmpty(authToken)) {
-            logger.debug("authToken is null");
-            BusinessException.create(CommonBusinessCode.AUTHTOKEN_NOTFOUND);
-        }
-        CurrentUserVO vo = null;
-       // 先从缓存里面取 token
-        RBucket<String> tokenBucket = redissonClient.getBucket(
-                applicationName + StrUtil.format(SysConstants.REDIS_LOGIN_TOKEN_KEY, SecureUtil.md5(authToken)));
-        if (!tokenBucket.isExists()) {
-            logger.debug("authToken {} not in redis", authToken);
-            BusinessException.create(CommonBusinessCode.AUTHTOKEN_INVALID);
-        }
-       // 然后根据token 取用户
-        RBucket<CurrentUserVO> userBucket = redissonClient.getBucket(
-                applicationName + StrUtil.format(SysConstants.REDIS_LOGIN_USER_KEY, JwtUtil.getUserName(authToken)));
-        if (userBucket.isExists()) {
-            vo = userBucket.get();
-            CurrentUserContext.remove();
-            CurrentUserContext.setCurrentUser(vo);
-        }
-        // 缓存不存在，从数据库中加载用户信息
-        if (ObjectUtil.isEmpty(vo)) {
-            logger.debug("currentUser({}) 获取不到信息 从数据库中查询该用户", JwtUtil.getUserName(authToken));
-            CurrentUserContext.remove();
-            sysUserAggregateService.getCurrentUserFromDb(JwtUtil.getUserName(authToken), ExtendNetUtil.getSpringContextRequestIp(), SecureUtil.md5(authToken));
-            vo = CurrentUserContext.getCurrentUser();
-            // 放入缓存中
-            userBucket.set(vo, shiroJwtProperties.getTokenExpireSeconds(), TimeUnit.SECONDS);
-        }
+    private Logger logger = LoggerFactory.getLogger(this.getClass());
 
-        if (ObjectUtil.isEmpty(vo)) {
-            logger.debug("currentUser({}) 缓存和数据库中都获取不到用户信息", JwtUtil.getUserName(authToken));
-            BusinessException.create(CommonBusinessCode.CURRENT_USER_NOTFOUND);
-        }
-
-        return vo;
+    /**
+     * 将对象放入缓存
+     *
+     * @param key        存储的key，这里一律String 类型
+     * @param value      存储对象
+     * @param timeToLive 存活时间
+     * @param timeUnit   时间单位
+     * @param <T>        value的类型
+     */
+    <T> void setObject(String key, T value, Long timeToLive, TimeUnit timeUnit) {
+        logger.info("请覆盖此方法");
     }
+
+    /**
+     * 从缓存中获取对象
+     *
+     * @param key 存储的key，这里一律String 类型
+     * @return 具体对象
+     */
+    Object getObject(String key) {
+        logger.info("请覆盖此方法");
+        return null;
+    }
+
+    /**
+     * 从缓存中删除对象
+     *
+     * @param key 存储的key，这里一律String 类型
+     */
+    void removeObject(String key) {
+        logger.info("请覆盖此方法");
+    }
+
 
 }
 
 ```
+
+
+这里针对token的认证授权还是建议开发自行开发处理，
+ 在认证 和 授权两个方法里面通过redis缓存进行自定义逻辑处理。

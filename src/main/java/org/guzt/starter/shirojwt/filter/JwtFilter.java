@@ -1,18 +1,19 @@
 package org.guzt.starter.shirojwt.filter;
 
-import org.apache.shiro.authc.AuthenticationException;
-import org.apache.shiro.authc.AuthenticationToken;
-import org.apache.shiro.subject.Subject;
-import org.apache.shiro.util.StringUtils;
-import org.apache.shiro.web.filter.authc.BasicHttpAuthenticationFilter;
-import org.apache.shiro.web.util.WebUtils;
 import org.guzt.starter.shirojwt.component.JwtBussinessService;
+import org.guzt.starter.shirojwt.context.JwtTokenCacheContext;
 import org.guzt.starter.shirojwt.context.ShiroExceptionContext;
 import org.guzt.starter.shirojwt.exception.NoTokenAuthenticationException;
 import org.guzt.starter.shirojwt.exception.ProgramErrorAuthenticationException;
 import org.guzt.starter.shirojwt.properties.ShiroJwtProperties;
 import org.guzt.starter.shirojwt.token.JwtToken;
 import org.guzt.starter.shirojwt.util.FilterUtil;
+import org.apache.shiro.authc.AuthenticationException;
+import org.apache.shiro.authc.AuthenticationToken;
+import org.apache.shiro.subject.Subject;
+import org.apache.shiro.util.StringUtils;
+import org.apache.shiro.web.filter.authc.BasicHttpAuthenticationFilter;
+import org.apache.shiro.web.util.WebUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -162,6 +163,7 @@ public class JwtFilter extends BasicHttpAuthenticationFilter {
             logger.error("JwtFilter onAccessDenied IOException", ioe);
         } finally {
             ShiroExceptionContext.remove();
+            JwtTokenCacheContext.remove();
         }
 
         return Boolean.FALSE;
@@ -170,24 +172,29 @@ public class JwtFilter extends BasicHttpAuthenticationFilter {
     @Override
     protected boolean onLoginSuccess(AuthenticationToken token, Subject subject, ServletRequest request, ServletResponse response) {
         ShiroExceptionContext.remove();
+        JwtTokenCacheContext.remove();
         if (token instanceof JwtToken) {
             HttpServletResponse httpResponse = WebUtils.toHttp(response);
             String oldToken = (String) token.getPrincipal();
+            String resultToken = oldToken;
             if (shiroJwtProperties.isTokenRefreshEnable() && FilterUtil.shouldTokenRefresh(oldToken)) {
                 if (logger.isDebugEnabled()) {
                     logger.debug("old token {}", oldToken);
                 }
+
                 // 重新生成一个新的 jwtToken
-                String newToken = jwtBussinessService.refreshOldToken(oldToken);
+                resultToken = jwtBussinessService.refreshOldToken(oldToken);
                 httpResponse.setStatus(HttpStatus.CREATED.value());
-                httpResponse.setHeader(shiroJwtProperties.getTokenHeaderKey(), newToken);
+                httpResponse.setHeader(shiroJwtProperties.getTokenHeaderKey(), resultToken);
                 // 头部属性 SysConstants.AUTH_TOKEN 可以作为响应的一部分暴露给外部
                 httpResponse.setHeader("Access-Control-Expose-Headers", shiroJwtProperties.getTokenHeaderKey());
                 if (logger.isDebugEnabled()) {
-                    logger.debug("token刷新 new Token {}", newToken);
+                    logger.debug("刷新后新的Token {}", resultToken);
                 }
-
             }
+
+            jwtBussinessService.onLoginSuccess(resultToken);
+
         }
 
         return Boolean.TRUE;

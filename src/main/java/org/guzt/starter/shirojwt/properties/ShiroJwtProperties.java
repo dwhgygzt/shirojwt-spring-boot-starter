@@ -28,25 +28,25 @@ public class ShiroJwtProperties {
     /**
      * JWTtoken 刷新秒数，表示 是否已经发布了 tokenRefreshSeconds 秒，如果超过就刷新一个新的token给前端
      */
-    private Integer tokenRefreshSeconds = 30 * 60;
+    private Integer tokenRefreshSeconds = 40 * 60;
 
     /**
-     * 是否开启缓存 默认缓存组件MemoryConstrainedCacheManager,  默认不开启
+     * 是否开启 本地缓存 CacheManager 默认不开启
      */
-    private boolean enableCacheMemory = false;
+    private boolean enableCacheManager = false;
 
     /**
-     * JWT 的签发者 默认为 guzt
+     * JWT 的签发者 默认为 无
      */
-    private String jwtIssuer = "guzt";
+    private String jwtIssuer = "";
 
     /**
      * JWT 的主题 默认为 jwtAuthToken
      */
-    private String jwtSubject = "jwtAuthToken";
+    private String jwtSubject = "";
 
     /**
-     * 是否启用ShiroJwt true 启用  false 禁用 ,  默认启用
+     * 是否启用ShiroJwt true 启用  false 禁用
      */
     private boolean enable = true;
 
@@ -105,12 +105,12 @@ public class ShiroJwtProperties {
         this.enable = enable;
     }
 
-    public boolean isEnableCacheMemory() {
-        return enableCacheMemory;
+    public boolean isEnableCacheManager() {
+        return enableCacheManager;
     }
 
-    public void setEnableCacheMemory(boolean enableCacheMemory) {
-        this.enableCacheMemory = enableCacheMemory;
+    public void setEnableCacheManager(boolean enableCacheManager) {
+        this.enableCacheManager = enableCacheManager;
     }
 
     public String getTokenHeaderKey() {

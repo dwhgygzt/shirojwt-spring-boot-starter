@@ -1,26 +1,25 @@
 package org.guzt.starter.shirojwt.context;
 
-import org.apache.shiro.ShiroException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * 认证失败的异常信息上下文.
+ * JwtToken 上下文，用于特殊途径.
  * 必须是同一个线程里面才能执行 get 方法 !!!!!!!!
  *
  * @author <a href="mailto:guzhongtao@middol.com">guzhongtao</a>
  */
-public class ShiroExceptionContext implements AutoCloseable {
+public class JwtTokenCacheContext implements AutoCloseable {
 
-    private static Logger logger = LoggerFactory.getLogger(ShiroExceptionContext.class);
+    private static Logger logger = LoggerFactory.getLogger(JwtTokenCacheContext.class);
 
     /**
      * ThreadLocal 对象
      */
-    static final ThreadLocal<ShiroException> CURRENT_EXCEPTION = new ThreadLocal<>();
+    static final ThreadLocal<String> CURRENT_JWT_TOKEN = new ThreadLocal<>();
 
-    public static void setCurrentException(ShiroException e) {
-        CURRENT_EXCEPTION.set(e);
+    public static void setCurrentJwtToken(String token) {
+        CURRENT_JWT_TOKEN.set(token);
     }
 
     /**
@@ -28,14 +27,14 @@ public class ShiroExceptionContext implements AutoCloseable {
      *
      * @return CurrentUserVO
      */
-    public static ShiroException getCurrentException() {
-        return CURRENT_EXCEPTION.get();
+    public static String getCurrentJwtToken() {
+        return CURRENT_JWT_TOKEN.get();
     }
 
     public static void remove() {
-        CURRENT_EXCEPTION.remove();
+        CURRENT_JWT_TOKEN.remove();
         if (logger.isDebugEnabled()) {
-            logger.debug("AuthenticationExceptionContext remove...");
+            logger.debug("JwtTokenContext remove...");
         }
     }
 
@@ -49,7 +48,7 @@ public class ShiroExceptionContext implements AutoCloseable {
      */
     @Override
     public void close() {
-        CURRENT_EXCEPTION.remove();
+        CURRENT_JWT_TOKEN.remove();
     }
 }
 

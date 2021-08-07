@@ -1,6 +1,5 @@
 package org.guzt.starter.shirojwt.filter;
 
-import org.guzt.starter.shirojwt.config.ShiroJwtAutoConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +19,7 @@ public class ExtraFilter {
      * 设置额外的过滤器.
      *
      * @param filterMap 已经初始化后的LinkedHashMap
-     * @see ShiroJwtAutoConfig#shiroFilterFactoryBean
+     * @see org.guzt.starter.shirojwt.config.ShiroJwtAutoConfig#shiroFilterFactoryBean
      */
     public void setExtraFilter(LinkedHashMap<String, Filter> filterMap) {
         if (logger.isDebugEnabled()){
